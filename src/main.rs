@@ -6,14 +6,19 @@ fn main() {
     // Задаем время работы программы в секундах
     let duration_seconds = 5;
 
-    // Создаем канал
+    // Создаем каналы: один для данных, другой для сигнала о завершении
     let (tx, rx) = mpsc::channel();
+    let (tx_stop, rx_stop) = mpsc::channel();
 
     // Создаем поток для отправки данных
     let sender = thread::spawn(move || {
         for i in 0.. {
+            // Проверяем, не пришел ли сигнал о завершении
+            if rx_stop.try_recv().is_ok() {
+                break;
+            }
+
             tx.send(i).unwrap();
-            // Добавим небольшую задержку, чтобы не перегружать канал
             thread::sleep(Duration::from_millis(100));
         }
     });
@@ -25,9 +30,10 @@ fn main() {
         }
     });
 
-    // Ждем заданное время и затем прерываем потоки
+    // Ждем заданное время и затем посылаем сигнал о завершении
     thread::sleep(Duration::from_secs(duration_seconds));
     println!("Terminating threads...");
+    tx_stop.send(()).unwrap();
 
     // Ждем завершения потоков
     sender.join().unwrap();
